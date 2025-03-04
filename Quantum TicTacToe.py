@@ -20,6 +20,7 @@ board = [[[] for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
 players = ['X', 'O']
 turn = 0
 collapsed_board = [[None for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+selected_moves = []
 
 def draw_grid():
     """Draws the Tic-Tac-Toe grid."""
@@ -62,9 +63,10 @@ def collapse_board():
                 collapsed_board[row][col] = board[row][col][0]
 
 def main():
-    global turn, board, collapsed_board
+    global turn, board, collapsed_board, selected_moves
     running = True
     game_over = False
+    selected_moves = []
     
     while running:
         draw_board()
@@ -78,10 +80,15 @@ def main():
                 x, y = event.pos
                 col, row = x // CELL_SIZE, y // CELL_SIZE
                 
-                if not collapsed_board[row][col]:
-                    player = players[turn % 2]
-                    board[row][col].append(player)
-                    turn += 1
+                if not collapsed_board[row][col] and (row, col) not in selected_moves:
+                    selected_moves.append((row, col))
+                    
+                    if len(selected_moves) == 2:
+                        player = players[turn % 2]
+                        board[selected_moves[0][0]][selected_moves[0][1]].append(player)
+                        board[selected_moves[1][0]][selected_moves[1][1]].append(player)
+                        turn += 1
+                        selected_moves = []
                     
                     # Check for collapse (when a cycle is detected)
                     if any(len(board[r][c]) > 1 for r in range(GRID_SIZE) for c in range(GRID_SIZE)):
@@ -90,13 +97,14 @@ def main():
                         if winner:
                             print(f"Player {winner} wins!")
                             game_over = True
-
+        
         if game_over:
             pygame.time.wait(2000)
             board = [[[] for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
             collapsed_board = [[None for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
             turn = 0
             game_over = False
+            selected_moves = []
     
     pygame.quit()
 
