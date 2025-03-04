@@ -8,8 +8,9 @@ pygame.init()
 WIDTH, HEIGHT = 600, 600
 GRID_SIZE = 3
 CELL_SIZE = WIDTH // GRID_SIZE
-WHITE, BLACK, RED, BLUE = (255, 255, 255), (0, 0, 0), (255, 0, 0), (0, 0, 255)
+WHITE, BLACK, RED, BLUE, GREEN = (255, 255, 255), (0, 0, 0), (255, 0, 0), (0, 0, 255), (0, 255, 0)
 FONT = pygame.font.Font(None, 60)
+SMALL_FONT = pygame.font.Font(None, 30)
 
 # Initialize screen
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -17,10 +18,12 @@ pygame.display.set_caption("Quantum Tic-Tac-Toe")
 
 # Game state
 board = [[[] for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+quantum_moves = {}  # Tracks quantum moves before collapse
 players = ['X', 'O']
 turn = 0
+moves_this_turn = []  # Track two moves per turn
 collapsed_board = [[None for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
-selected_moves = []
+highlighted_cell = None
 
 def draw_grid():
     """Draws the Tic-Tac-Toe grid."""
@@ -32,80 +35,104 @@ def draw_board():
     """Displays the current game board."""
     screen.fill(WHITE)
     draw_grid()
-    
+
+    if highlighted_cell:
+        pygame.draw.rect(screen, GREEN, (highlighted_cell[1] * CELL_SIZE, highlighted_cell[0] * CELL_SIZE, CELL_SIZE, CELL_SIZE), 5)
+
     for row in range(GRID_SIZE):
         for col in range(GRID_SIZE):
             x, y = col * CELL_SIZE + 20, row * CELL_SIZE + 20
             if collapsed_board[row][col]:
                 text = FONT.render(collapsed_board[row][col], True, RED if collapsed_board[row][col] == 'X' else BLUE)
                 screen.blit(text, (x + 30, y + 30))
-            elif board[row][col]:
-                text = FONT.render(", ".join(board[row][col]), True, BLACK)
-                screen.blit(text, (x, y))
+            elif (row, col) in quantum_moves:
+                for i, symbol in enumerate(quantum_moves[(row, col)]):
+                    color = RED if symbol == 'X' else BLUE
+                    text = SMALL_FONT.render(symbol, True, color)
+                    screen.blit(text, (x, y + (i * 20)))
+
+def collapse_board():
+    """Collapses the board by resolving cycles in superposition."""
+    for row in range(GRID_SIZE):
+        for col in range(GRID_SIZE):
+            if (row, col) in quantum_moves:
+                collapsed_board[row][col] = random.choice(quantum_moves[(row, col)])
 
 def check_winner():
     """Checks for a winner after collapse."""
-    win_patterns = [(0,1,2), (3,4,5), (6,7,8), (0,3,6), (1,4,7), (2,5,8), (0,4,8), (2,4,6)]
-    flat_board = [collapsed_board[row][col] for row in range(GRID_SIZE) for col in range(GRID_SIZE)]
-    
-    for a, b, c in win_patterns:
-        if flat_board[a] and flat_board[a] == flat_board[b] == flat_board[c]:
-            return flat_board[a]
+    for row in range(GRID_SIZE):
+        if collapsed_board[row][0] and collapsed_board[row][0] == collapsed_board[row][1] == collapsed_board[row][2]:
+            return collapsed_board[row][0]
+    for col in range(GRID_SIZE):
+        if collapsed_board[0][col] and collapsed_board[0][col] == collapsed_board[1][col] == collapsed_board[2][col]:
+            return collapsed_board[0][col]
+    if collapsed_board[0][0] and collapsed_board[0][0] == collapsed_board[1][1] == collapsed_board[2][2]:
+        return collapsed_board[0][0]
+    if collapsed_board[0][2] and collapsed_board[0][2] == collapsed_board[1][1] == collapsed_board[2][0]:
+        return collapsed_board[0][2]
     return None
 
-def collapse_board():
-    """Collapses quantum states randomly when a cycle is detected."""
-    for row in range(GRID_SIZE):
-        for col in range(GRID_SIZE):
-            if len(board[row][col]) > 1:
-                collapsed_board[row][col] = random.choice(board[row][col])
-            elif len(board[row][col]) == 1:
-                collapsed_board[row][col] = board[row][col][0]
+def display_message(message):
+    """Displays a temporary message on the screen."""
+    screen.fill(WHITE)
+    text = FONT.render(message, True, BLACK)
+    screen.blit(text, (WIDTH // 4, HEIGHT // 2))
+    pygame.display.flip()
+    pygame.time.wait(2000)
+
+def reset_game():
+    """Resets the game state after a win."""
+    global board, collapsed_board, turn, moves_this_turn, quantum_moves, highlighted_cell
+    board = [[[] for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+    collapsed_board = [[None for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+    quantum_moves = {}
+    turn = 0
+    moves_this_turn = []
+    highlighted_cell = None
 
 def main():
-    global turn, board, collapsed_board, selected_moves
+    global turn, moves_this_turn, quantum_moves, collapsed_board, highlighted_cell
     running = True
     game_over = False
-    selected_moves = []
-    
+
     while running:
         draw_board()
         pygame.display.flip()
-        
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            
+
+            if event.type == pygame.MOUSEMOTION:
+                x, y = event.pos
+                highlighted_cell = (y // CELL_SIZE, x // CELL_SIZE)
+
             if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
                 x, y = event.pos
                 col, row = x // CELL_SIZE, y // CELL_SIZE
-                
-                if not collapsed_board[row][col] and (row, col) not in selected_moves:
-                    selected_moves.append((row, col))
-                    
-                    if len(selected_moves) == 2:
-                        player = players[turn % 2]
-                        board[selected_moves[0][0]][selected_moves[0][1]].append(player)
-                        board[selected_moves[1][0]][selected_moves[1][1]].append(player)
-                        turn += 1
-                        selected_moves = []
-                    
-                    # Check for collapse (when a cycle is detected)
-                    if any(len(board[r][c]) > 1 for r in range(GRID_SIZE) for c in range(GRID_SIZE)):
-                        collapse_board()
-                        winner = check_winner()
-                        if winner:
-                            print(f"Player {winner} wins!")
-                            game_over = True
-        
+
+                player = players[turn % 2]
+                if (row, col) not in quantum_moves:
+                    quantum_moves[(row, col)] = []
+                quantum_moves[(row, col)].append(player)
+                moves_this_turn.append((row, col))
+                draw_board()  # Update board immediately after move
+                pygame.display.flip()
+
+                if len(moves_this_turn) == 2:
+                    moves_this_turn = []
+                    turn += 1
+                    collapse_board()
+
+                winner = check_winner()
+                if winner:
+                    display_message(f"Player {winner} wins!")
+                    game_over = True
+
         if game_over:
-            pygame.time.wait(2000)
-            board = [[[] for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
-            collapsed_board = [[None for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
-            turn = 0
+            reset_game()
             game_over = False
-            selected_moves = []
-    
+
     pygame.quit()
 
 if __name__ == "__main__":
