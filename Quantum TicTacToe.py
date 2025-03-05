@@ -21,7 +21,6 @@ board = [[[] for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
 quantum_moves = {}  # Tracks quantum moves before collapse
 players = ['X', 'O']
 turn = 0
-moves_this_turn = []  # Track two moves per turn
 collapsed_board = [[None for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
 highlighted_cell = None
 
@@ -52,7 +51,7 @@ def draw_board():
                     screen.blit(text, (x, y + (i * 20)))
 
 def collapse_board():
-    """Collapses the board by resolving cycles in superposition."""
+    """Collapses the board by resolving quantum moves."""
     for row in range(GRID_SIZE):
         for col in range(GRID_SIZE):
             if (row, col) in quantum_moves:
@@ -82,16 +81,15 @@ def display_message(message):
 
 def reset_game():
     """Resets the game state after a win."""
-    global board, collapsed_board, turn, moves_this_turn, quantum_moves, highlighted_cell
+    global board, collapsed_board, turn, quantum_moves, highlighted_cell
     board = [[[] for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
     collapsed_board = [[None for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
     quantum_moves = {}
     turn = 0
-    moves_this_turn = []
     highlighted_cell = None
 
 def main():
-    global turn, moves_this_turn, quantum_moves, collapsed_board, highlighted_cell
+    global turn, quantum_moves, collapsed_board, highlighted_cell
     running = True
     game_over = False
 
@@ -115,14 +113,10 @@ def main():
                 if (row, col) not in quantum_moves:
                     quantum_moves[(row, col)] = []
                 quantum_moves[(row, col)].append(player)
-                moves_this_turn.append((row, col))
-                draw_board()  # Update board immediately after move
+                draw_board()
                 pygame.display.flip()
-
-                if len(moves_this_turn) == 2:
-                    moves_this_turn = []
-                    turn += 1
-                    collapse_board()
+                turn += 1
+                collapse_board()
 
                 winner = check_winner()
                 if winner:
